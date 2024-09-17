@@ -1,0 +1,294 @@
+<index.html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spot the Scam!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #instructions {
+            max-width: 800px;
+            margin: 0 auto 20px auto;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #instructions h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        #instructions ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        #instructions li {
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #taskPool {
+            width: 100%;
+            max-width: 800px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .stages-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        .column {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+        .column h2 {
+            text-align: center;
+            color: #444;
+            font-size: 1em;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .task {
+            background: #e9e9e9;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            cursor: move;
+            font-size: 0.9em;
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .task.dragging {
+            opacity: 0.5;
+        }
+        .task.correct {
+            background-color: #90EE90;
+        }
+        .task.incorrect {
+            background-color: #FFB6C1;
+        }
+        #score {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        #gameOver {
+            text-align: center;
+            font-size: 1.5em;
+            color: #4CAF50;
+            margin-top: 20px;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Spot the Scam!</h1>
+
+    <div id="instructions">
+        <h2>How to Play</h2>
+        <ul>
+            <li>Drag each task from the **Task Pool** and drop it into the correct category: "Legit Offer" or "Scam Alert".</li>
+            <li>Earn 5 points for each correct categorisation, and lose 3 points for incorrect ones.</li>
+            <li>Try to correctly identify all the scenarios!</li>
+        </ul>
+    </div>
+
+    <div id="score">Score: 0</div>
+    <div class="game-container" id="gameContainer"></div>
+    <div id="gameOver"></div>
+    <button id="resetButton" style="display: none;">Play Again</button>
+
+    <script>
+        const stages = [
+            { id: 'legit', title: 'Legit Offer' },
+            { id: 'scam', title: 'Scam Alert' }
+        ];
+
+        const tasks = [
+            { id: 'task1', content: 'Phone provider offers 10% discount via official app', stage: 'legit' },
+            { id: 'task2', content: 'Win a free phone! Click the link to claim', stage: 'scam' },
+            { id: 'task3', content: 'Official website offers 20% discount on phones', stage: 'legit' },
+            { id: 'task4', content: 'Text from unknown number says you’ve won a free phone', stage: 'scam' },
+            { id: 'task5', content: 'Social media ad from unverified seller offering BOGO phone deal via Bitcoin', stage: 'scam' },
+            { id: 'task6', content: 'Retailer advertises a small discount on older models', stage: 'legit' },
+            { id: 'task7', content: 'Pop-up claims your phone is infected, offers a free phone if you download their app', stage: 'scam' },
+            { id: 'task8', content: 'Well-known retailer advertises a sale on last year’s models', stage: 'legit' },
+            { id: 'task9', content: 'Email claims you are eligible for a free phone by filling out a survey with your NI number', stage: 'scam' },
+            { id: 'task10', content: 'Your mobile provider sends you a secure email about a new phone upgrade', stage: 'legit' }
+        ];
+
+        let score = 0;
+        const gameContainer = document.getElementById('gameContainer');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('gameOver');
+        const resetButton = document.getElementById('resetButton');
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createGameBoard() {
+            gameContainer.innerHTML = '';
+            score = 0;
+            scoreDisplay.textContent = `Score: ${score}`;
+            gameOverDisplay.textContent = '';
+            resetButton.style.display = 'none';
+
+            const taskPool = document.createElement('div');
+            taskPool.className = 'task-pool';
+            taskPool.innerHTML = '<h2>Task Pool</h2>';
+            taskPool.id = 'taskPool';
+            gameContainer.appendChild(taskPool);
+
+            const stagesContainer = document.createElement('div');
+            stagesContainer.className = 'stages-container';
+            gameContainer.appendChild(stagesContainer);
+
+            shuffleArray(tasks);
+            tasks.forEach(task => {
+                const taskElement = createTaskElement(task);
+                taskPool.appendChild(taskElement);
+            });
+
+            stages.forEach(stage => {
+                const column = document.createElement('div');
+                column.className = 'column';
+                column.innerHTML = `<h2>${stage.title}</h2>`;
+                column.id = stage.id;
+                stagesContainer.appendChild(column);
+            });
+
+            setupDragAndDrop();
+        }
+
+        function createTaskElement(task) {
+            const taskElement = document.createElement('div');
+            taskElement.className = 'task';
+            taskElement.draggable = true;
+            taskElement.id = task.id;
+            taskElement.textContent = task.content;
+            return taskElement;
+        }
+
+        function setupDragAndDrop() {
+            const tasksElements = document.querySelectorAll('.task');
+            const columns = document.querySelectorAll('.column');
+
+            tasksElements.forEach(task => {
+                task.addEventListener('dragstart', dragStart);
+                task.addEventListener('dragend', dragEnd);
+            });
+
+            columns.forEach(column => {
+                column.addEventListener('dragover', dragOver);
+                column.addEventListener('dragenter', dragEnter);
+                column.addEventListener('dragleave', dragLeave);
+                column.addEventListener('drop', drop);
+            });
+        }
+
+        function dragStart() {
+            this.classList.add('dragging');
+        }
+
+        function dragEnd() {
+            this.classList.remove('dragging');
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+        }
+
+        function dragEnter(e) {
+            e.preventDefault();
+            this.style.background = '#e9e9e9';
+        }
+
+        function dragLeave() {
+            this.style.background = '';
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            this.style.background = '';
+            const task = document.querySelector('.dragging');
+            this.appendChild(task);
+            checkScore(task, this);
+            checkGameOver();
+        }
+
+        function checkScore(task, column) {
+            const taskData = tasks.find(t => t.id === task.id);
+            task.classList.remove('correct', 'incorrect');
+            if (taskData.stage === column.id) {
+                score += 5;
+                scoreDisplay.textContent = `Score: ${score}`;
+                task.classList.add('correct');
+                task.draggable = false;
+            } else {
+                score -= 3;
+                scoreDisplay.textContent = `Score: ${score}`;
+                task.classList.add('incorrect');
+            }
+        }
+
+        function checkGameOver() {
+            const remainingTasks = document.querySelectorAll('#taskPool .task');
+            if (remainingTasks.length === 0) {
+                gameOverDisplay.textContent = `Game Over! Your final score is ${score}.`;
+                resetButton.style.display = 'block';
+            }
+        }
+
+        resetButton.addEventListener('click', createGameBoard);
+
+        createGameBoard();
+    </script>
+</body>
+</html>
